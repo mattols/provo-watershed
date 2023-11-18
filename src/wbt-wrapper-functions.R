@@ -218,7 +218,7 @@ watershed_hillshade <- function(outpath, shedoutpath, Zen = 40, Asp = 270,
       plot(st_read(file.path(shedoutpath,"wb_points.shp") ),add=T, pch=4,col='red')
     }else{
       pnt_i = file.path(outpath, paste0("point",multipts,".shp") )
-      pnt_buff = st_read(pnt_i) %>% st_buffer(500) # 500 meter buffer 
+      pnt_buff = st_read(pnt_i) %>% st_buffer(4000) # 4km buffer 
       
       plot(crop(hill,pnt_buff), col=grey(0:100/100), legend=FALSE, mar=c(2,2,1,4))
       plot(st_crop(wsshape,pnt_buff),add=T,col=NA)
@@ -307,8 +307,11 @@ watershed_hillshade(file.path(outpath,paste0("p_",id)), shedoutpath, Zen = 40, A
                                 clipit=TRUE, multipts=id)
 
 
+# stream (6000 or 1000) does not include all upstream but only the nearby watershed
+# perhaps need to add watersheds together
 
 
+# eventually create a tool that combines all individual watersheds into a single layer
 
 
 
