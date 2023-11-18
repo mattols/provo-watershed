@@ -1,7 +1,9 @@
 #
 # Leveraging WTB for watershed delineation
-# 
+# Jake Mora & Geoff Zahn
+# goal: impervious surface % at each measurement point
 #
+
 library(terra);library(whitebox);library(sf);library(dplyr);library(ggplot2)
 library(stars)
 
@@ -169,7 +171,8 @@ assess_point_snap <- function(outpath, shedoutpath){
   
 }
 
-watershed_hillshade <- function(outpath, shedoutpath, Zen = 40, Asp = 270, clipit=TRUE){
+watershed_hillshade <- function(outpath, shedoutpath, Zen = 40, Asp = 270, 
+                                clipit=TRUE, multipts=NULL){
   #
   # graphics to display polygonized watersheds over hillshade
   #
@@ -186,7 +189,15 @@ watershed_hillshade <- function(outpath, shedoutpath, Zen = 40, Asp = 270, clipi
   wb <- rast( file.path(outpath,"watershed.tif") )
   wsshape <- stars::st_as_stars(wb) %>% st_as_sf(merge = T)
   plot(wsshape,add=T,col=NA)
-  plot(st_read(file.path(shedoutpath,"wb_points.shp") ),add=T, pch=4,col='red')
+  
+  # add single or multi points
+  if(is.null(multipts)){
+    plot(st_read(file.path(shedoutpath,"wb_points.shp") ),add=T, pch=4,col='red')
+  }else{
+    pnt_i = file.path(outpath, paste0("point",multipts,".shp") )
+    plot(st_read(pnt_i ),add=T, pch=4,col='red')
+  }
+  
   # unable to plot text
   # wsshp = wsshape %>% st_centroid() %>% 
   #   # this is the crs from d, which has no EPSG code:
@@ -200,9 +211,19 @@ watershed_hillshade <- function(outpath, shedoutpath, Zen = 40, Asp = 270, clipi
   # d <-  ext(xmin, xmax, ymin, ymax)
   d <- ext(443245.27310154, 449205.901673278, 4459263.94446199, 4468502.91874819)
   if(clipit){
-    plot(crop(hill,d), col=grey(0:100/100), legend=FALSE, mar=c(2,2,1,4))
-    plot(st_crop(wsshape,d),add=T,col=NA)
-    plot(st_read(file.path(shedoutpath,"wb_points.shp") ),add=T, pch=4,col='red')
+    # single or multipoints
+    if(is.null(multipts)){
+      plot(crop(hill,d), col=grey(0:100/100), legend=FALSE, mar=c(2,2,1,4))
+      plot(st_crop(wsshape,d),add=T,col=NA)
+      plot(st_read(file.path(shedoutpath,"wb_points.shp") ),add=T, pch=4,col='red')
+    }else{
+      pnt_i = file.path(outpath, paste0("point",multipts,".shp") )
+      pnt_buff = st_read(pnt_i) %>% st_buffer(500) # 500 meter buffer 
+      
+      plot(crop(hill,pnt_buff), col=grey(0:100/100), legend=FALSE, mar=c(2,2,1,4))
+      plot(st_crop(wsshape,pnt_buff),add=T,col=NA)
+      plot(st_read(pnt_i),add=T, pch=4,col='red')
+    }
   }
 }
 
@@ -220,6 +241,11 @@ delineate_ws_iter <- function(dempath,outpath){
     print(paste("...beginning",i))
     delineate_watershed(dempath, outpath, breach_dist=5, fill_opt=T, stream_thresh=6000,
                         snap_distance=50, flname_iter = i)
+    # plot results
+    watershed_hillshade(file.path(outpath,paste0("p_",i)),
+                        shedoutpath, Zen = 40, Asp = 270, 
+                        clipit=TRUE, multipts = i)
+    # must add i to any outpath plots
   }
   print("Finished")
   print(Sys.time() - strt)
@@ -273,7 +299,7 @@ plot(wb)
 # possibly need to run one point at a time. recreate individual watershed points
 # new function?
 dempath = "data/results/dem_shed/pshed.tif"
-outpath = "data/results/ipoints/"
+outpath = "data/results/ipoints"
 delineate_ws_iter(dempath,outpath)
 
 

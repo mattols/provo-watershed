@@ -1,9 +1,10 @@
 
 #
 #
+# working with functions
+# 
 #
-# blank slate
-#
+
 library(terra);library(whitebox);library(sf);library(dplyr);library(ggplot2);library(raster)
 
 
