@@ -45,7 +45,7 @@ delineate_watershed <- function(dempath, outpath, breach_dist=5, fill_opt=T,
     # alternative single point
     pts=st_read(file.path(shedoutpath,"wb_points.shp"))
     pourpnts = file.path(outpath, paste0("point",flname_iter,".shp") )
-    st_write(pnts,pourpnts)
+    st_write(pts[flname_iter,],pourpnts)
   }else{pourpnts=file.path(shedoutpath,"wb_points.shp")} # all points
   
   # 3. snap pour points to stream
@@ -301,6 +301,10 @@ plot(wb)
 dempath = "data/results/dem_shed/pshed.tif"
 outpath = "data/results/ipoints"
 delineate_ws_iter(dempath,outpath)
+# observe
+id = 10
+watershed_hillshade(file.path(outpath,paste0("p_",id)), shedoutpath, Zen = 40, Asp = 270, 
+                                clipit=TRUE, multipts=id)
 
 
 
