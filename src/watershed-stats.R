@@ -5,7 +5,7 @@ library(tidyr)
 
 # once delineation is complete and checked
 # 1. create watershed polys - merge all into single layer
-# 2. clip to NLCD - generate summary table
+# 2. clip to NLCD/impervious - generate summary table
 
 
 # generate watershed poly from individual point folders
@@ -50,6 +50,7 @@ watershed_poly_pts <-  function(outpath, shedoutpath, multipts=1){
   
 }
 
+# build final table with all ws
 extract_lc_table <- function(df.table, outpath="data/results"){
   # 
   # extract variables for each site
@@ -68,9 +69,10 @@ extract_lc_table <- function(df.table, outpath="data/results"){
   for (i in 1:nrow(df.table1)){
     print(paste("...extracting data from", i, "of", nrow(df.table1)))
     # extract info from layers
-    st_read(interpv,file.path(outpath,"watersheds", paste0("p",i,"_wshed.shp")) )
+    interpv <- st_read(file.path(outpath,"watersheds", paste0("p",i,"_wshed.shp")) )
     v.area <- interpv %>% st_area() %>% as.numeric() / 1000^2 # in km^2
-    df.table1$area_km2 = v.area
+    if(i==1){df.table1$area_km2 = NA}
+    df.table1$area_km2[i] = v.area
     
     # extract land cover
     nl21 <- rast( file.path(outpath,"nlcd_clip", paste0("p",i,"_nlcd.tif")) )
@@ -79,30 +81,53 @@ extract_lc_table <- function(df.table, outpath="data/results"){
     
     # summarize NLCD values
     nltbl = nl21 %>% as.data.frame() %>% na.omit() %>%
-      group_by(`NLCD Land Cover Class`) %>% count() %>% mutate(n = (n*res(nl21)[1]^2)/1000^2 ) %>%
-      pivot_wider(names_from = `NLCD Land Cover Class`, values_from = n)
+      group_by(`NLCD Land Cover Class`) %>% count() %>% mutate(n = (n*res(nl21)[1]^2)/1000^2 )
+      # pivot_wider(names_from = `NLCD Land Cover Class`, values_from = n)
     # summarize Impervious values
-    imtbl = nl21id %>% as.data.frame() %>% na.omit() %>%
-      group_by(Class_Names) %>% count() %>% mutate(n = (n*res(nl21id)[1]^2)/1000^2 ) %>%
-      pivot_wider(names_from = Class_Names, values_from = n)
+    imtbl = nl21i %>% as.data.frame() %>% na.omit() %>%
+      group_by(Class_Names) %>% count() %>% mutate(n = (n*res(nl21i)[1]^2)/1000^2 )
+      # pivot_wider(names_from = Class_Names, values_from = n)
     
     # save table
     if (i==1){
-      df.nl = cbind(df.table1, nltbl)
-      df.i = cbind(df.table1, imtbl)
+      # df.nl = cbind(df.table1, nltbl)
+      # df.i = cbind(df.table1, imtbl)
+      df.nl = nltbl
+      df.i = imtbl
       
     }else{
-      df.nl[i, 7:ncol(df.nl)] <- nltbl
-      df.i[i, 7:ncol(df.nl)] <- nltbl
+      # df.nl[i, 7:ncol(df.nl)] <- nltbl
+      # df.i[i, 7:ncol(df.i)] <- imtbl
+      # account for any new classes
+      df.nl <- full_join(df.nl,nltbl,by="NLCD Land Cover Class")
+      df.i <- full_join(df.i,imtbl,by= "Class_Names")
     }
   }
+  # # rename and join tables
+  colnames(df.nl)[2:11] <- paste0("p",1:10)
+  colnames(df.nl)[2:11] <- paste0("p",1:10)
+  
+  # pivot
+  # dfnl2 = df.nl %>% pivot_wider(names_from = `NLCD Land Cover Class`, values_from = n)
+  dfnl2 = df.nl %>% t() %>% as.data.frame()
+  colnames(dfnl2) = dfnl2[1,];dfnl2 <- dfnl2[2:nrow(dfnl2),];dfnl2[is.na(dfnl2)] <- 0.0
+  # dfi2 = df.i %>% pivot_wider(names_from = Class_Names, values_from = n)
+  dfi2 = df.i %>% t() %>% as.data.frame()
+  colnames(dfi2) = dfi2[1,];dfi2 <- dfi2[2:nrow(dfi2),];dfi2[is.na(dfi2)] <- 0.0
+  
+  # bind
+  dfinal.nlcd = cbind(df.table1, dfnl2)
+  dfinal.imperv = cbind(df.table1, dfi2)
+
   # save tables
-  write.csv(df.nl,file.path(outpath, "tables", "NLCD_watersheds.csv"), row.names=FALSE)
+  write.csv(dfinal.nlcd,file.path(outpath, "tables", "NLCD_watersheds.csv"), row.names=FALSE)
+  write.csv(dfinal.imperv,file.path(outpath, "tables", "Impervious_watersheds.csv"), row.names=FALSE)
   
   print("Complete")
   
 }
 
+# # # # # # # # # # 
 # save files (watersheds and masked landcover tifs)
 # only need 1 from each site! (3 samples per site)
 outpath = "data/results/ipoints"
@@ -126,7 +151,7 @@ sum(tbl1$n)==sum(!is.na(values(nl21)))
 tbl1 %>% t()
 
 #
-
+# # # # # # # # #
 # extract tables
 outpath = "data/results"
 dfp = read.csv("data/sample_sites/aquatic-plant-proj-metadata.csv")

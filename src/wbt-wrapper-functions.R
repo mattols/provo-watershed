@@ -373,11 +373,11 @@ check_snap_align(outpath, ptnum = 1, ras_num=3) # not aligned
 # nlcd2 <- crop(nlcd21i, pv_buff) %>% project(.,crs(pvws))
 # writeRaster(nlcd2, "data/nlcd/nlcd/nlcd_2021_impervious_proj.tif")
 # Impervious descriptor (2021)
-nlcd21i <- terra::rast("data/nlcd/nlcd_2021_impervious_descriptor_l48_20230630/nlcd_2021_impervious_descriptor_l48_20230630.img" )
-pv_prj = st_transform(pvws,st_crs(nlcd21i))
-pv_buff <- st_buffer(pv_prj, 10000)
-nlcd2 <- crop(nlcd21i, pv_buff) %>% project(.,crs(pvws))
-writeRaster(nlcd2, "data/nlcd/nlcd/nlcd_2021_impervious_desc_proj.tif")
+# nlcd21i <- terra::rast("data/nlcd/nlcd_2021_impervious_descriptor_l48_20230630/nlcd_2021_impervious_descriptor_l48_20230630.img" )
+# pv_prj = st_transform(pvws,st_crs(nlcd21i))
+# pv_buff <- st_buffer(pv_prj, 10000)
+# nlcd2 <- crop(nlcd21i, pv_buff) %>% project(.,crs(pvws))
+# writeRaster(nlcd2, "data/nlcd/nlcd/nlcd_2021_impervious_desc_proj.tif")
 
 
 # landcover - https://www.mrlc.gov/data/nlcd-2021-land-cover-conus
