@@ -130,6 +130,28 @@ png(file.path(outpath,"figures",paste0("LandCover_Impervious_f",1,".png")), widt
 grid.arrange(p1,p2,nrow=2)
 dev.off()
 #
+# corrected for lat
+p1 = df1 %>% select(lat, Developed..Open.Space, Developed..Low.Intensity,Developed..Medium.Intensity, Developed..High.Intensity) %>% 
+  mutate(Total.Developed = alllcdev) %>%  melt(.,id.vars="lat") %>% mutate(Classification = variable) %>%
+  ggplot(aes(x=lat,y=value,colour=Classification, linetype=Classification)) + geom_point() +
+  geom_line() + theme_classic() + ylab("Land cover type (km^2)") +
+  xlab("") + 
+  scale_color_hue(l=50,c=80) + scale_linetype_manual(values=c(rep("solid",4),"dashed"))
+# scale_color_manual(values = )
+# scale_color_manual(values = )
+p2 = df2 %>% select(-c(site_ID, lon,collect_date,process_date, area_km2)) %>%
+  mutate(total.impervious = allim) %>% melt(.,id.vars="lat") %>% 
+  mutate(Classification = variable) %>% filter(variable!="Unclassified") %>% 
+  ggplot(aes(x=lat,y=value,colour=Classification, linetype=Classification)) + geom_point() +
+  geom_line() + theme_classic() + ylab("Impervious surface type (km^2)") +
+  xlab("Latitude") + scale_color_hue(l=50,c=80) + 
+  scale_linetype_manual(values=c(rep("solid",5),"dashed"))
+#
+png(file.path(outpath,"figures",paste0("LandCover_Impervious_f",2,".png")), width=10,height=5, units='in', res=300)
+grid.arrange(p1,p2,nrow=2)
+dev.off()
+#
+
 
 # general map
 pv_ws <- st_read(file.path(outpath,"dem_shed", "pshed.shp") )
