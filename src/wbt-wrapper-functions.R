@@ -7,6 +7,8 @@
 library(terra);library(whitebox);library(sf);library(dplyr);library(ggplot2)
 library(stars)
 
+# main functions for watershed delineation
+
 # wrapper to run WTB workflow
 delineate_watershed <- function(dempath, outpath, breach_dist=5, fill_opt=T, 
                                 stream_thresh=6000, snap_distance=0.5, flname_iter=NULL){
@@ -60,7 +62,7 @@ delineate_watershed <- function(dempath, outpath, breach_dist=5, fill_opt=T,
   wbt_watershed(d8_pntr = file.path(outpath,"D8pointer.tif"),
                 pour_pts = file.path(outpath,"snappedpp.shp"),
                 output = file.path(outpath,"watershed.tif"))
-  
+
   print(cat("\n Completed delineation with...
       breach dist:", breach_dist,
       "
@@ -150,7 +152,7 @@ assess_results <- function(outpath, shedoutpath, clipit=TRUE){
   # #
 }
 
-# assess point snapping
+# assess point snapping (plot)
 assess_point_snap <- function(outpath, shedoutpath){
   #
   #  point snapping
@@ -171,6 +173,25 @@ assess_point_snap <- function(outpath, shedoutpath){
   
 }
 
+# check pnt snap alignment (plot)
+check_snap_align <-  function(outpath, ptnum = 2, ras_num=3){
+  # 3 - default for DF
+  print(list.files(list.files(outpath,full.names = T)[ptnum]))
+  cat("\nAssessing", list.files(list.files(outpath,full.names = T)[ptnum])[ras_num],
+      "\n with pts: \n",
+      list.files(list.files(outpath,full.names = T)[ptnum])[7], "&",
+      list.files(list.files(outpath,full.names = T)[ptnum])[12], "\n" )
+  # layers
+  pnt1 <- st_read(list.files(list.files(outpath,full.names = T)[ptnum],full.names = T)[7] )
+  snp1 <- st_read(list.files(list.files(outpath,full.names = T)[ptnum],full.names = T)[12] )
+  rs1 <-  rast(list.files(list.files(outpath,full.names = T)[ptnum],full.names = T)[3] )
+  rs1 %>% crop(st_buffer(pnt1, 100)) %>% plot()
+  plot(pnt1,add=T)
+  plot(snp1,add=T,col='red',pch=4)
+  
+}
+
+# create hillshade (plot)
 watershed_hillshade <- function(outpath, shedoutpath, Zen = 40, Asp = 270, 
                                 clipit=TRUE, multipts=NULL){
   #
@@ -227,7 +248,8 @@ watershed_hillshade <- function(outpath, shedoutpath, Zen = 40, Asp = 270,
   }
 }
 
-delineate_ws_iter <- function(dempath,outpath){
+# watershed delineation (wrapper for above)
+delineate_ws_iter <- function(dempath,outpath, pointpath=NULL){
   #
   # runs watershed delineation for each point individually
   #
@@ -235,7 +257,7 @@ delineate_ws_iter <- function(dempath,outpath){
   # define
   shedoutpath <- dirname(dempath)
   #
-  pts_dim = dim(st_read(file.path(shedoutpath,"wb_points.shp") ))
+  pts_dim = dim(st_read(file.path(shedoutpath,"wb_points.shp") )) 
   for (i in 1:pts_dim[1]){
     # each point
     print(paste("...beginning",i))
@@ -251,26 +273,32 @@ delineate_ws_iter <- function(dempath,outpath){
   print(Sys.time() - strt)
 }
 
+
+# # # # PATHS # # #
 # MAIN paths
 dempath0 = "data/dem/n41w112_10m/n41w112_10m.tif"
 outpath = "data/results"
 pointpath = "data/shp/pourpts/mora-pourpoints.shp"
-
+#
 # watershed path
 shedpolypath = "data/shp/Utah_Watersheds_Area/Watersheds_Area.shp"
 rivpath = "data/shp/results/provo_riv_agg.shp"
 shedoutpath = file.path(outpath, "dem_shed")
-# # create watershed
+#
+# # create watershed - ONLY RUN ONCE
 # dir.create(shedoutpath)
 # watershed_clip(dempath0, pointpath, shedpolypath, rivpath)
-dempath = "data/results/dem_shed/pshed.tif"
+dempath = "data/results/dem_shed/pshed.tif" # redefine to new extent
 dempath_mask = "data/results/dem_shed/pmask_shed.tif"
-
+#
 # check crs of DEM for inputs
 crs(rast(dempath))
 res(rast(dempath)) # in meters
+# # # # # # # # # #
 
-# Test 1 
+# # # # # # # # # # # # # # # # # #
+# # # DOES NOT WORK SIMULTANEOUSLY
+# Test 1 - all at once
 rpaths <- delineate_watershed(dempath, outpath, breach_dist=5, fill_opt=T, stream_thresh=1000,
                                 snap_distance=50)
 # Completed delineation with...
@@ -282,8 +310,7 @@ rpaths <- delineate_watershed(dempath, outpath, breach_dist=5, fill_opt=T, strea
 assess_results(rpaths, shedoutpath, clipit=TRUE)
 assess_point_snap(rpaths, shedoutpath)
 #
-
-# Test 2
+# Test 2 - all at once
 rpaths <- delineate_watershed(dempath, outpath, breach_dist=5, fill_opt=T, stream_thresh=6000,
                               snap_distance=50)
  # rpaths <- "data/results/2023-11-17 15-21-05"
@@ -293,26 +320,73 @@ watershed_hillshade(rpaths, shedoutpath, Zen = 40, Asp = 270, clipit=TRUE)
 #
 wb = rast( file.path(rpaths,"watershed.tif") )
 plot(wb)
-#
+# # # # # # # # # # # #
 
 # # # # # # # # # #
-# possibly need to run one point at a time. recreate individual watershed points
-# new function?
+# # # BEST  # # # # 
+# Need to run one point at a time. recreate individual watershed points
+# New paths and alter function
 dempath = "data/results/dem_shed/pshed.tif"
 outpath = "data/results/ipoints"
-delineate_ws_iter(dempath,outpath)
-# observe
-id = 10
+delineate_ws_iter(dempath,outpath) # creates plots for each
+# observe single
+id = 1
 watershed_hillshade(file.path(outpath,paste0("p_",id)), shedoutpath, Zen = 40, Asp = 270, 
                                 clipit=TRUE, multipts=id)
+# 
+# WORKED FOR ALL BUT ONE - due to snapping misalignment with tributary
+# all work great except for the first point?
+# - observe how close this is to the stream location? can move? - GPS inaccuracy
+# fix P_1
+check_snap_align(outpath, ptnum = 2, ras_num=3) # aligned
+check_snap_align(outpath, ptnum = 1, ras_num=3) # not aligned
+# fix: see snap corr manual script
+#
+# tool to 
 
 
-# stream (6000 or 1000) does not include all upstream but only the nearby watershed
-# perhaps need to add watersheds together
+# to do
+# create a tool that combines all individual watersheds into a single layer
+# change polygon to only include area below the dam
+# clip NLCD dataset and generate % statistics - convert for pervious vs impervious
+# create two maps vs two figures showing point location over Land cover type
+
+# # # # SAVE # # # # #
+# nlcd save https://www.mrlc.gov/data
+# nlcd <- terra::rast(file.path("testdata", "nlcd_2019_land_cover_l48_20210604/nlcd_2019_land_cover_l48_20210604.img"))
+# pv_prj = st_transform(pvws,st_crs(nlcd))
+# pv_buff <- st_buffer(pv_prj, 10000)
+# nlcd2 <- crop(nlcd, pv_buff) %>% project(.,crs(pvws))
+# writeRaster(nlcd2, "data/nlcd/nlcd/nlcd_2019_landcover_corr.tif")
+#
+# NLCD 2021 LC
+# nlcd21 <- terra::rast("data/nlcd/nlcd_2021_land_cover_l48_20230630/nlcd_2021_land_cover_l48_20230630.img" )
+# pv_prj = st_transform(pvws,st_crs(nlcd21))
+# pv_buff <- st_buffer(pv_prj, 10000)
+# nlcd2 <- crop(nlcd21, pv_buff) %>% project(.,crs(pvws))
+# writeRaster(nlcd2, "data/nlcd/nlcd/nlcd_2021_landcover_proj.tif")
+#
+# NLCD 2021 Impervious
+# nlcd21i <- terra::rast("data/nlcd/nlcd_2021_impervious_l48_20230630/nlcd_2021_impervious_l48_20230630.img" )
+# pv_prj = st_transform(pvws,st_crs(nlcd21i))
+# pv_buff <- st_buffer(pv_prj, 10000)
+# nlcd2 <- crop(nlcd21i, pv_buff) %>% project(.,crs(pvws))
+# writeRaster(nlcd2, "data/nlcd/nlcd/nlcd_2021_impervious_proj.tif")
+# Impervious descriptor (2021)
+nlcd21i <- terra::rast("data/nlcd/nlcd_2021_impervious_descriptor_l48_20230630/nlcd_2021_impervious_descriptor_l48_20230630.img" )
+pv_prj = st_transform(pvws,st_crs(nlcd21i))
+pv_buff <- st_buffer(pv_prj, 10000)
+nlcd2 <- crop(nlcd21i, pv_buff) %>% project(.,crs(pvws))
+writeRaster(nlcd2, "data/nlcd/nlcd/nlcd_2021_impervious_desc_proj.tif")
 
 
-# eventually create a tool that combines all individual watersheds into a single layer
+# landcover - https://www.mrlc.gov/data/nlcd-2021-land-cover-conus
 
+# impervious 
+# impervious descriptor - https://www.mrlc.gov/data/nlcd-2021-developed-imperviousness-descriptor-conus
+# more info about impervious classes
+# percent developed imperviousness - https://www.mrlc.gov/data/nlcd-2021-percent-developed-imperviousness-conus
+# 
 
 
 # extra
